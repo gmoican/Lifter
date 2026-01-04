@@ -52,7 +52,7 @@ juce_add_plugin("${PROJECT_NAME}"
     # Change me!
     # A unique four-character plugin id
     # Note: this must have at least one upper-case character
-    PLUGIN_CODE Px01
+    PLUGIN_CODE Px03
     FORMATS "${FORMATS}"
 
     # The name of your final executable
