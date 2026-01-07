@@ -5,18 +5,18 @@ PluginEditor::PluginEditor (LifterProcessor& p)
       processorRef (p)
 {
     juce::ignoreUnused (processorRef);
-    // juce::LookAndFeel::setDefaultLookAndFeel(&myCustomLnF);
+    juce::LookAndFeel::setDefaultLookAndFeel(&myCustomLnF);
     
     // --- LAYOUT ---
-    header.setColour (juce::TextButton::buttonColourId, UIConstants::background.brighter(0.5f)
-                                                                               .withAlpha(0.25f)
+    header.setColour (juce::TextButton::buttonColourId, punk_dsp::UIConstants::background.brighter(0.5f)
+                                                                                         .withAlpha(0.25f)
                       );
     header.setEnabled(false);
     header.setButtonText ("Punk DSP - Lifter");
     addAndMakeVisible (header);
     
-    params.setColour (juce::TextButton::buttonColourId, UIConstants::background.brighter(0.5f)
-                                                                               .withAlpha(0.25f)
+    params.setColour (juce::TextButton::buttonColourId, punk_dsp::UIConstants::background.brighter(0.5f)
+                                                                                         .withAlpha(0.25f)
                       );
     params.setEnabled(false);
     addAndMakeVisible (params);
@@ -93,15 +93,26 @@ PluginEditor::PluginEditor (LifterProcessor& p)
 
     // Topology button
     feedButton.setClickingTogglesState(true);
+    feedButton.onClick = [this]() { updateToggleButtonText(); };
+    updateToggleButtonText();
     addAndMakeVisible(feedButton);
     
     feedAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processorRef.apvts, Parameters::feedId, feedButton);
     
     // Gain Reduction Display
-    grDisplay.setClickingTogglesState(false);
-    addAndMakeVisible(grDisplay);
+    gaDisplay.setClickingTogglesState(false);
+    addAndMakeVisible(gaDisplay);
+    gaDisplay.setButtonText ("GA: 0.0 dB");
+    startTimer(50);
     
-    setSize (380, 400);
+    // Sizing calculations
+    const int numCols = 3;
+    const int numRows = 3;
+    
+    const int totalWidth = (numCols * (punk_dsp::UIConstants::knobSize + 2 * punk_dsp::UIConstants::margin)) + (10 * 2);
+    const int totalHeight = punk_dsp::UIConstants::headerHeight + (numRows * (punk_dsp::UIConstants::knobSize + 2 * punk_dsp::UIConstants::margin)) + (10 * 2);
+    
+    setSize (totalWidth, totalHeight);
 }
 
 PluginEditor::~PluginEditor()
@@ -112,7 +123,13 @@ PluginEditor::~PluginEditor()
 void PluginEditor::paint (juce::Graphics& g)
 {
     // (Our component is opaque, so we must completely fill the background with a solid colour)
-    g.fillAll (UIConstants::background);
+    g.fillAll (punk_dsp::UIConstants::background);
+}
+
+void PluginEditor::timerCallback()
+{
+    float gaValue = processorRef.sendGainAddition();
+    gaDisplay.setButtonText ("GA: " + juce::String (gaValue, 1) + " dB");
 }
 
 void PluginEditor::resized()
@@ -128,33 +145,43 @@ void PluginEditor::resized()
     params.setBounds(paramsArea);
     
     // --- PARAMS LAYOUT ---
-    auto paramsBounds = params.getBounds().reduced(UIConstants::margin);
+    juce::FlexBox fb;
+    fb.flexDirection = juce::FlexBox::Direction::row;
+    fb.flexWrap = juce::FlexBox::Wrap::wrap;
+    fb.justifyContent = juce::FlexBox::JustifyContent::spaceBetween;
+    fb.alignContent = juce::FlexBox::AlignContent::spaceBetween;
     
-    // First row: 3 sliders
-    auto row1 = paramsBounds.removeFromTop(UIConstants::knobSize + UIConstants::margin);
-    ratioSlider.setBounds(row1.removeFromLeft(UIConstants::knobSize));
-    row1.removeFromLeft(UIConstants::margin);
-    thresSlider.setBounds(row1.removeFromLeft(UIConstants::knobSize));
-    row1.removeFromLeft(UIConstants::margin);
-    kneeSlider.setBounds(row1.removeFromLeft(UIConstants::knobSize));
+    // Add sliders to the FlexBox
+    fb.items.add(juce::FlexItem(ratioSlider).withMinWidth(punk_dsp::UIConstants::knobSize)
+                                            .withMinHeight(punk_dsp::UIConstants::knobSize)
+                                            .withMargin(punk_dsp::UIConstants::margin));
+    fb.items.add(juce::FlexItem(thresSlider).withMinWidth(punk_dsp::UIConstants::knobSize)
+                                            .withMinHeight(punk_dsp::UIConstants::knobSize)
+                                            .withMargin(punk_dsp::UIConstants::margin));
+    fb.items.add(juce::FlexItem(kneeSlider).withMinWidth(punk_dsp::UIConstants::knobSize)
+                                           .withMinHeight(punk_dsp::UIConstants::knobSize)
+                                           .withMargin(punk_dsp::UIConstants::margin));
     
-    paramsBounds.removeFromTop(UIConstants::margin);
+    fb.items.add(juce::FlexItem(attackSlider).withMinWidth(punk_dsp::UIConstants::knobSize)
+                                             .withMinHeight(punk_dsp::UIConstants::knobSize)
+                                             .withMargin(punk_dsp::UIConstants::margin));
+    fb.items.add(juce::FlexItem(releaseSlider).withMinWidth(punk_dsp::UIConstants::knobSize)
+                                              .withMinHeight(punk_dsp::UIConstants::knobSize)
+                                              .withMargin(punk_dsp::UIConstants::margin));
+    fb.items.add(juce::FlexItem(makeupSlider).withMinWidth(punk_dsp::UIConstants::knobSize)
+                                             .withMinHeight(punk_dsp::UIConstants::knobSize)
+                                             .withMargin(punk_dsp::UIConstants::margin));
     
-    // Second row: 3 sliders
-    auto row2 = paramsBounds.removeFromTop(UIConstants::knobSize + UIConstants::margin);
-    attackSlider.setBounds(row2.removeFromLeft(UIConstants::knobSize));
-    row2.removeFromLeft(UIConstants::margin);
-    releaseSlider.setBounds(row2.removeFromLeft(UIConstants::knobSize));
-    row2.removeFromLeft(UIConstants::margin);
-    makeupSlider.setBounds(row2.removeFromLeft(UIConstants::knobSize));
+    fb.items.add(juce::FlexItem(feedButton).withMinWidth(punk_dsp::UIConstants::knobSize)
+                                           .withMinHeight(punk_dsp::UIConstants::knobSize)
+                                           .withMargin(punk_dsp::UIConstants::margin));
+    fb.items.add(juce::FlexItem(mixSlider).withMinWidth(punk_dsp::UIConstants::knobSize)
+                                          .withMinHeight(punk_dsp::UIConstants::knobSize)
+                                          .withMargin(punk_dsp::UIConstants::margin));
+    fb.items.add(juce::FlexItem(gaDisplay).withMinWidth(punk_dsp::UIConstants::knobSize)
+                                          .withMinHeight(punk_dsp::UIConstants::knobSize)
+                                          .withMargin(punk_dsp::UIConstants::margin));
     
-    paramsBounds.removeFromTop(UIConstants::margin);
-    
-    // Third row: 1 slider + 2 buttons
-    auto row3 = paramsBounds.removeFromTop(UIConstants::knobSize + UIConstants::margin);
-    feedButton.setBounds(row3.removeFromLeft(UIConstants::knobSize));
-    row3.removeFromLeft(UIConstants::margin);
-    mixSlider.setBounds(row3.removeFromLeft(UIConstants::knobSize));
-    row3.removeFromLeft(UIConstants::margin);
-    grDisplay.setBounds(row3.removeFromLeft(UIConstants::knobSize));
+    // Perform the layout
+    fb.performLayout(paramsArea);
 }

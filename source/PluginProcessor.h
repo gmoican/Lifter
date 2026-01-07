@@ -101,6 +101,8 @@ public:
     juce::AudioProcessorValueTreeState apvts;
     
     void updateParameters();
+    
+    float sendGainAddition(){ return lifter.getGainAddition(); }
 
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParams();
